@@ -8,21 +8,19 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
 Y_CLASSES = ['toxic', 'severe_toxic','obscene','threat','insult','identity_hate']
+TEXT_FIELD = 'comment_text'
+VOCAB_PROCESSOR_FILENAME = 'vocab_processor'
 
 class WikiData:
 
-  def __init__(self, data_path, y_class, max_document_length,
-               vocab_processor_path=None, test_mode=False, seed=None,
-               train_percent=None):
+  def __init__(self, data_path, y_class, max_document_length, model_dir,
+               test_mode=False, seed=None, train_percent=None):
     """
     Args:
       * data_path (string): path to file containing train or test data
       * y_class (string): the class we're training or testing on
-      * vocab_processor_path (string): if provided, the comment_text data will
-          be processed with the vocab processor at that location. If not, a new
-          vocab_processor will be created using the training data.
       * test_mode (boolean): true if loading data just to test on, not training
-                             a model
+          a model. Loads vocab_processor from model directory to preprocess data.
       * seed (integer): a random seed to use for data splitting
       * train_percent (fload): the percent of data we should use for training data
     """
@@ -32,6 +30,7 @@ class WikiData:
     self.x_test, self.x_test_text = None, None
     self.y_train = None
     self.y_test = None
+    self.model_dir = model_dir
     self.vocab_processor = None
 
     # If test_mode is True, then put all the data in x_test and y_test
@@ -40,32 +39,49 @@ class WikiData:
 
     # Split the data into test / train sets
     self.x_train_text, self.x_test_text, self.y_train, self.y_test \
-      = self._split(data, train_percent, 'comment_text', y_class, seed)
+      = self._split(data, train_percent, TEXT_FIELD, y_class, seed)
 
-    # Either load a VocabularyProcessor or compute one from the training data
     if test_mode:
 
-      # If test_mode is True and no vocab_processor_path is specified, then
-      # return an error. We shouldn't train a VocabProcessor at test time.
-      if vocab_processor_path is None:
-        tf.logging.error("Loading data in test_mode with no vocab_processor_path")
-        raise ValueError
+      # If a vocab processor hasn't been cached, then load one
+      if self.vocab_processor is None:
+        self.vocab_processor = self._load_vocab_processor()
 
-      self.vocab_processor = self.load_vocab_processor(vocab_processor_path)
+      # Process the test data
+      self.x_test = np.array(list(self.vocab_processor.transform(self.x_test_text)))
+      return
 
-    else:
-      self.vocab_processor = tf.contrib.learn.preprocessing.VocabularyProcessor(
-        max_document_length)
-      self.x_train = np.array(list(self.vocab_processor.fit_transform(
-        self.x_train_text)))
+    # In train mode, create a VocabularyProcessor from the training data and
+    # apply it to the test data
+    self.vocab_processor = tf.contrib.learn.preprocessing.VocabularyProcessor(
+      max_document_length)
 
-    # Apply the VocabularyProcessor to the test data
+    self.x_train = np.array(list(self.vocab_processor.fit_transform(
+      self.x_train_text)))
     self.x_test = np.array(list(self.vocab_processor.transform(
       self.x_test_text)))
 
-  def _load_vocab_processor(self, path):
+    # Save the vocab processor in the model directory
+    self._save_vocab_processor()
+
+  def _load_vocab_processor(self):
     """Load a VocabularyProcessor from the provided path"""
+    path = self._vocab_processor_path()
+    tf.logging.info('Loading VocabularyProcessor from {}'.format(path))
+
     return tf.contrib.learn.preprocessing.VocabularyProcessor.restore(path)
+
+  def _save_vocab_processor(self):
+    """Save a VocabularyProcessor from the provided path"""
+    path = self._vocab_processor_path()
+    tf.logging.info('Saving VocabularyProcessor to {}'.format(path))
+
+    tf.contrib.learn.preprocessing.VocabularyProcessor.save(
+      self.vocab_processor, self._vocab_processor_path())
+
+  def _vocab_processor_path(self):
+    """Retruns the path to the file containing a trained VocabularyProcessor"""
+    return self.model_dir + '/' + VOCAB_PROCESSOR_FILENAME
 
   def _load_csv(self, path):
     """

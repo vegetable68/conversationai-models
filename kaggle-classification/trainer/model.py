@@ -46,7 +46,8 @@ MAX_DOCUMENT_LENGTH = 500 # Max length of each comment in words
 CNNParams = namedtuple(
   'CNNParams',['EMBEDDING_SIZE','N_FILTERS', 'FILTER_SIZES', 'DROPOUT_KEEP_PROB'])
 CNN_PARAMS = CNNParams(
-  EMBEDDING_SIZE=50, N_FILTERS=10, FILTER_SIZES=[2,3,4,5],  DROPOUT_KEEP_PROB=.75)
+  EMBEDDING_SIZE=20, N_FILTERS=10, FILTER_SIZES=[2,3,4,5],
+  DROPOUT_KEEP_PROB=.75)
 
 # Bag of Word parameters
 BOWParams = namedtuple('BOWParams', ['EMBEDDING_SIZE'])
@@ -146,13 +147,15 @@ def cnn_model(features, labels, mode):
   filter_sizes = CNN_PARAMS.FILTER_SIZES
   num_filters = CNN_PARAMS.N_FILTERS
   dropout_keep_prob = CNN_PARAMS.DROPOUT_KEEP_PROB
+  words_feature = WORDS_FEATURE
+  document_length = int(features[words_feature].shape[1])
 
   with tf.name_scope("embedding"):
     W = tf.Variable(
         tf.random_uniform([n_words, embedding_size], -1.0, 1.0),
         name="W")
 
-    embedded_chars = tf.nn.embedding_lookup(W, features[WORDS_FEATURE])
+    embedded_chars = tf.nn.embedding_lookup(W, features[words_feature])
     embedded_chars_expanded = tf.expand_dims(embedded_chars, -1)
 
   pooled_outputs = []
@@ -174,9 +177,10 @@ def cnn_model(features, labels, mode):
 
         # Max-pooling over the outputs. Max over samples in batch and
         # all filters.
+
         pooled = tf.nn.max_pool(
           hh,
-          ksize=[1, MAX_DOCUMENT_LENGTH - filter_size + 1, 1, 1],
+          ksize=[1, document_length - filter_size + 1, 1, 1],
           strides=[1, 1, 1, 1],
           padding='VALID',
           name="pool")
@@ -247,7 +251,7 @@ def main():
 
     data = wikidata.WikiData(
       FLAGS.train_data, FLAGS.y_class, seed=DATA_SEED, train_percent=TRAIN_PERCENT,
-      max_document_length=MAX_DOCUMENT_LENGTH)
+      max_document_length=MAX_DOCUMENT_LENGTH, model_dir=FLAGS.saved_model_dir)
 
     n_words = len(data.vocab_processor.vocabulary_)
     tf.logging.info('Total words: %d' % n_words)
