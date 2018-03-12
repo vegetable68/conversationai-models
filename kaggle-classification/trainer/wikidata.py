@@ -13,7 +13,7 @@ VOCAB_PROCESSOR_FILENAME = 'vocab_processor'
 
 class WikiData:
 
-  def __init__(self, data_path, y_class, max_document_length, model_dir,
+  def __init__(self, data_path, max_document_length, model_dir, y_class=None,
                test_mode=False, seed=None, train_percent=None):
     """
     Args:
@@ -33,23 +33,22 @@ class WikiData:
     self.model_dir = model_dir
     self.vocab_processor = None
 
-    # If test_mode is True, then put all the data in x_test and y_test
     if test_mode:
-      train_percent = 0
+      # In test_mode, assume no labels. Put all the data in x_test_text and
+      # x_test
+      self.x_test_text = data[TEXT_FIELD]
 
-    # Split the data into test / train sets
-    self.x_train_text, self.x_test_text, self.y_train, self.y_test \
-      = self._split(data, train_percent, TEXT_FIELD, y_class, seed)
-
-    if test_mode:
-
-      # If a vocab processor hasn't been cached, then load one
-      if self.vocab_processor is None:
-        self.vocab_processor = self._load_vocab_processor()
+      # Load cached VocabularyProcessor
+      self.vocab_processor = self._load_vocab_processor()
 
       # Process the test data
       self.x_test = np.array(list(self.vocab_processor.transform(self.x_test_text)))
+
       return
+
+    # train mode
+    self.x_train_text, self.x_test_text, self.y_train, self.y_test \
+      = self._split(data, train_percent, TEXT_FIELD, y_class, seed)
 
     # In train mode, create a VocabularyProcessor from the training data and
     # apply it to the test data
@@ -61,9 +60,6 @@ class WikiData:
     self.x_test = np.array(list(self.vocab_processor.transform(
       self.x_test_text)))
 
-    # Save the vocab processor in the model directory
-    self._save_vocab_processor()
-
   def _load_vocab_processor(self):
     """Load a VocabularyProcessor from the provided path"""
     path = self._vocab_processor_path()
@@ -71,7 +67,7 @@ class WikiData:
 
     return tf.contrib.learn.preprocessing.VocabularyProcessor.restore(path)
 
-  def _save_vocab_processor(self):
+  def save_vocab_processor(self):
     """Save a VocabularyProcessor from the provided path"""
     path = self._vocab_processor_path()
     tf.logging.info('Saving VocabularyProcessor to {}'.format(path))
