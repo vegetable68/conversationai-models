@@ -42,12 +42,9 @@ def predict(data, classifier):
 
 def load_model(session, model_dir):
     """Loads SavedModel model and returns classifier."""
-
-    # load saved graph
     tf.saved_model.loader.load(
         session, [tf.saved_model.tag_constants.SERVING], model_dir)
 
-    # load ... ???
     classifier = tf.contrib.predictor.from_saved_model(model_dir)
 
     return classifier
@@ -59,7 +56,8 @@ def main():
 
     # load test data
     data = wikidata.WikiData(
-        FLAGS.test_data, MAX_DOCUMENT_LENGTH, FLAGS.model_dir, test_mode=True)
+        data_path=FLAGS.test_data, max_document_length=MAX_DOCUMENT_LENGTH,
+        test_mode=True, model_dir=FLAGS.model_dir)
 
     # evaluate model on data
     scores = predict(data.x_test, classifier)

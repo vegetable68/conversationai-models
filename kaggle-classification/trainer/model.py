@@ -254,8 +254,7 @@ def main():
       max_document_length=MAX_DOCUMENT_LENGTH,
       y_class=FLAGS.y_class,
       seed=DATA_SEED,
-      train_percent=TRAIN_PERCENT,
-      model_dir=FLAGS.saved_model_dir
+      train_percent=TRAIN_PERCENT
     )
 
     n_words = len(data.vocab_processor.vocabulary_)
@@ -329,14 +328,15 @@ def main():
     for key in sorted(tf_scores):
       tf.logging.info("%s: %s" % (key, tf_scores[key]))
 
-    # Export the model
+    # Save the model and VocabProcessor
     feature_spec = {
       WORDS_FEATURE: tf.FixedLenFeature(
         dtype=tf.int64, shape=MAX_DOCUMENT_LENGTH)
     }
     serving_input_fn = tf.estimator.export.build_parsing_serving_input_receiver_fn(feature_spec)
 
-    classifier.export_savedmodel(FLAGS.saved_model_dir, serving_input_fn)
+    export_path = classifier.export_savedmodel(FLAGS.saved_model_dir, serving_input_fn)
+    data.save_vocab_processor(export_path)
 
 
 if __name__ == '__main__':
