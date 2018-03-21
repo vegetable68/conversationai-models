@@ -98,5 +98,6 @@ class attentionDisplay(object):
         tokenized_string = self._resize_and_tokenize(input_string)
         wordvals = [wordVal(w,v) for w, v in zip(tokenized_string, attn[0])]
         word_df = pd.DataFrame(wordvals).transpose()
+        return word_df
         return word_df.style.applymap(self._color_wordvals)
 
