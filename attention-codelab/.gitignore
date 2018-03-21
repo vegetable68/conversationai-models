@@ -2,3 +2,5 @@ embeddings/
 data/
 models/
 checkpoints/
+*.pyc
+.ipynb_checkpoints/
